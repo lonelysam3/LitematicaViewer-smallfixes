@@ -6,6 +6,14 @@ from litemapy import Schematic, Region, BlockState
 file_path = ""
 Block = {}
 
+def convert_units(number):
+    units = {'箱': 54 * 27 * 64, '盒': 27 * 64, '组': 64, '个': 1}
+    result = ""
+    for unit, value in units.items():
+        result += str(number // value) + unit
+        number %= value
+    return result
+
 def import_file():
     global file_path
     file_path = filedialog.askopenfilename()
@@ -32,39 +40,41 @@ def start_analysis():
 
     for region_index, region in enumerate(schem.regions.values()):
         print(f"Analyzing region {region_index + 1}")
-        label_bottom2.config(text=f"{region.maxx()-region.minx()}x{region.maxy()-region.miny()}x{region.maxz()-region.minz()}")
+        size_x=region.maxx()-region.minx()
+        size_y=region.maxy()-region.miny()
+        size_z=region.maxz()-region.minz()
+        label_bottom2.config(text=f"{size_x}x{size_y}x{size_z}")
         # Analyze blocks
-        for x, y, z in np.ndindex(region._Region__blocks.shape):
-            block_id = region._Region__blocks[x, y, z]  # Get the block ID from the palette
-            block_state = region._Region__palette[block_id]  # Get the corresponding BlockState
-
-            if block_id == 0: 
-                continue
-            if block_state not in Block:
-                Block[block_state] = 1
-            else:
-                Block[block_state] += 1
+        for x in range(size_x+1):
+            for y in range(size_y+1):
+                for z in range(size_z+1):
+                    block_id = region._Region__blocks[x, y, z]
+                    block_state = region._Region__palette[block_id]
+                    if block_id == 0: 
+                        continue
+                    if block_state not in Block:
+                        Block[block_state] = 1
+                    else:
+                        Block[block_state] += 1
     sorted_block = sorted(Block.items(), key=lambda x: x[1], reverse=True)
     show_block_count(sorted_block)
 
 def show_block_count(list):
-    for block_state, count in Block.items():
+    for block_state, count in list:
         print(f"{block_state}: {count}")
-        properties = block_state._BlockState__properties
-        count_table.insert('', 'end', values=(str(block_state._BlockState__block_id), str(properties), str(count), convert_units(count)))
+        properties = str(block_state._BlockState__properties)
+        properties = properties.replace("{", "")
+        properties = properties.replace("}", "")
+        properties = properties.replace("'", "")
+        count_table.insert('', 'end', values=(str(block_state._BlockState__block_id), properties, str(count), convert_units(count)))
     count_table.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
 
-def convert_units(number):
-    units = {'箱': 54 * 27 * 64, '盒': 27 * 64, '组': 64, '个': 1}
-    result = ""
-    for unit, value in units.items():
-        result += str(number // value) + unit
-        number %= value
-    return result
 
+
+# Tkinter Setting
 litem = tk.Tk()
 litem.title("Litematica Viewer")
-litem.geometry("1090x720")  # 设置窗口大小为720p
+litem.geometry("1090x720")  
 
 # 上容器
 frame_top = tk.Frame(litem)
