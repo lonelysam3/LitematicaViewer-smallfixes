@@ -45,21 +45,25 @@ def start_analysis(simple_type=False):
             for x in range(size_x + 1):
                 for y in range(size_y + 1):
                     for z in range(size_z + 1):
-                        block_id = region._Region__blocks[x, y, z]
-                        block_state = region._Region__palette[block_id]
-                        if simple_type:
-                            block_state = str(block_state).split(":")[-1].split("[")[0]
-                        if block_id == 0:
-                            continue
-                        if block_state not in Block:
-                            Block[block_state] = 1
-                        else:
-                            Block[block_state] += 1
+                        block_state = region._Region__palette[region._Region__blocks[x, y, z]]
+                        block_id = block_state._BlockState__block_id
+                        output = block_state
+                        if block_id != "minecraft:air":
+                            if block_id == "minecraft:piston_head" or block_id == "minecraft:bubble_column":
+                                continue
+                            if simple_type:
+                                output = block_id
+                            print(block_id)
+                            if output not in Block:
+                                Block[output] = 1
+                            else:
+                                Block[output] += 1
     except Exception as e:
         print(f"Error during analysis: {e}")
         return
     sorted_block = sorted(Block.items(), key=lambda x: x[1], reverse=True)
     show_block_count(sorted_block, simple_type)
+
 
 def show_block_count(sorted_block, simple_type):
     global images
@@ -70,9 +74,8 @@ def show_block_count(sorted_block, simple_type):
             block_id = block_name
         else:
             properties = str(block_state._BlockState__properties)
-            properties = properties.replace("{", "").replace("}", "").replace("'", "")
+            properties = properties.replace("'", "")
             block_id = block_state._BlockState__block_id
-        #print(block_name)
         try:
             img_path = f"block/{str(block_name)}.png"
             img2 = Image.open(img_path)
@@ -88,7 +91,7 @@ def show_block_count(sorted_block, simple_type):
 litem = tk.Tk()
 litem.title("Litematica Viewer")
 litem.geometry("720x720")
-litem.iconbitmap("block/crafting_table2.png")
+litem.iconbitmap("icon.ico")
 
 # 上容器
 frame_top = tk.Frame(litem)
@@ -103,7 +106,7 @@ btn_start.pack(side=tk.LEFT, padx=5, pady=5)
 btn_simstart = tk.Button(frame_top, text="Simple Analysis(block name)", command=lambda:start_analysis(True))
 btn_simstart.pack(side=tk.LEFT, padx=5, pady=5)
 
-icon = tk.PhotoImage(file="block/crafting_table2.png")
+icon = tk.PhotoImage(file="block/crafting_table.png")
 icon_image = tk.Label(frame_top, image=icon)
 icon_image.pack(side=tk.RIGHT, padx=5, pady=5)
 
