@@ -35,44 +35,44 @@ def start_analysis(simple_type=False):
         print("Please import a file first.")
         return
 
-    #try:
-    schematic = Schematic.load(file_path)
-    print(f"Schematic loaded: {schematic}")
-    for region_index, region in enumerate(schematic.regions.values()):
-        print(f"Analyzing region {region_index + 1}")
-        size_x = region.maxx() - region.minx() + 1
-        size_y = region.maxy() - region.miny() + 1
-        size_z = region.maxz() - region.minz() + 1
-        num = 0
-        for x in range(size_x):
-            for y in range(size_y):
-                for z in range(size_z):
-                    block_state = region._Region__palette[region._Region__blocks[x, y, z]]
-                    block_id = block_state._BlockState__block_id
-                    output = block_state
-                    if block_id != "minecraft:air" and block_id != "minecraft:cave_air" and block_id != "minecraft:void_air":
-                        num += 1
-                        if block_id == "minecraft:piston_head" or block_id == "minecraft:bubble_column" or block_id == "minecraft:nether_portal" or block_id == "minecraft:moving_piston":
-                            continue
-                        if simple_type:
-                            output = block_id
-                        if output not in Block:
-                            Block[output] = 1
-                        else:
-                            Block[output] += 1
-        
-        for entity in region._Region__entities:
-            entity_type = "E/"+str(entity.id)
-            if entity_type == "E/minecraft:item" or entity_type == "E/minecraft:bat" or entity_type == "E/minecraft:experience_orb" or entity_type == "E/minecraft:shulker_bullet":
-                continue
-            if entity_type not in Block:
-                Block[entity_type] = 1
-            else:
-                Block[entity_type] += 1
-        label_bottom.config(text=f"Size体积: {size_x}x{size_y}x{size_z} | Number数量: {num} | Density密度: {num / (size_x * size_y * size_z) * 100:.2f}%")
-    '''except Exception as e:
+    try:
+        schematic = Schematic.load(file_path)
+        print(f"Schematic loaded: {schematic}")
+        for region_index, region in enumerate(schematic.regions.values()):
+            print(f"Analyzing region {region_index + 1}")
+            size_x = region.maxx() - region.minx() + 1
+            size_y = region.maxy() - region.miny() + 1
+            size_z = region.maxz() - region.minz() + 1
+            num = 0
+            for x in range(size_x):
+                for y in range(size_y):
+                    for z in range(size_z):
+                        block_state = region._Region__palette[region._Region__blocks[x, y, z]]
+                        block_id = block_state._BlockState__block_id
+                        output = block_state
+                        if block_id != "minecraft:air" and block_id != "minecraft:cave_air" and block_id != "minecraft:void_air":
+                            num += 1
+                            if block_id == "minecraft:piston_head" or block_id == "minecraft:bubble_column" or block_id == "minecraft:nether_portal" or block_id == "minecraft:moving_piston":
+                                continue
+                            if simple_type:
+                                output = block_id
+                            if output not in Block:
+                                Block[output] = 1
+                            else:
+                                Block[output] += 1
+            
+            for entity in region._Region__entities:
+                entity_type = "E/"+str(entity.id)
+                if entity_type == "E/minecraft:item" or entity_type == "E/minecraft:bat" or entity_type == "E/minecraft:experience_orb" or entity_type == "E/minecraft:shulker_bullet":
+                    continue
+                if entity_type not in Block:
+                    Block[entity_type] = 1
+                else:
+                    Block[entity_type] += 1
+            label_bottom.config(text=f"Size体积: {size_x}x{size_y}x{size_z} | Number数量: {num} | Density密度: {num / (size_x * size_y * size_z) * 100:.2f}%")
+    except Exception as e:
         print(f"Error during analysis: {e}")
-        return'''
+        return
     sorted_block = sorted(Block.items(), key=lambda x: x[1], reverse=True)
     show_block_count(sorted_block, simple_type)
 
