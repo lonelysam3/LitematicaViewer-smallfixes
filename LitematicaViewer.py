@@ -3,10 +3,14 @@ import numpy as np
 from tkinter import filedialog, ttk
 from litemapy import Schematic, Region, BlockState
 from PIL import Image, ImageTk
+import importlib, webbrowser
+your_module = importlib.import_module('litemapy')
+YourClass = getattr(your_module, 'Region')
+
 
 file_path = ""
 Block = {}
-images = {}  # Dictionary to hold image references
+images = {}
 
 def convert_units(number):
     units = {'箱': 54 * 27 * 64, '盒': 27 * 64, '组': 64, '个': 1}
@@ -31,38 +35,44 @@ def start_analysis(simple_type=False):
         print("Please import a file first.")
         return
 
-    print(f"Analyzing file: {file_path}")
-    try:
-        schematic = Schematic.load(file_path)
-        print(f"Schematic loaded: {schematic}")
-        for region_index, region in enumerate(schematic.regions.values()):
-            print(f"Analyzing region {region_index + 1}")
-            size_x = region.maxx() - region.minx()
-            size_y = region.maxy() - region.miny()
-            size_z = region.maxz() - region.minz()
-            label_bottom.config(text=f"{size_x}x{size_y}x{size_z}")
-            for x in range(size_x + 1):
-                for y in range(size_y + 1):
-                    for z in range(size_z + 1):
-                        try:
-                            block_state = region._Region__palette[region._Region__blocks[x, y, z]]
-                            block_id = block_state._BlockState__block_id
-                            output = block_state
-                            if block_id != "minecraft:air":
-                                if block_id == "minecraft:piston_head" or block_id == "minecraft:bubble_column":
-                                    continue
-                                if simple_type:
-                                    output = block_id
-                                if output not in Block:
-                                    Block[output] = 1
-                                else:
-                                    Block[output] += 1
-                        except Exception as e:
-                            print(f"Error Entites during analysis: {e}")
+    #try:
+    schematic = Schematic.load(file_path)
+    print(f"Schematic loaded: {schematic}")
+    for region_index, region in enumerate(schematic.regions.values()):
+        print(f"Analyzing region {region_index + 1}")
+        size_x = region.maxx() - region.minx() + 1
+        size_y = region.maxy() - region.miny() + 1
+        size_z = region.maxz() - region.minz() + 1
+        num = 0
+        for x in range(size_x):
+            for y in range(size_y):
+                for z in range(size_z):
+                    block_state = region._Region__palette[region._Region__blocks[x, y, z]]
+                    block_id = block_state._BlockState__block_id
+                    output = block_state
+                    if block_id != "minecraft:air" and block_id != "minecraft:cave_air" and block_id != "minecraft:void_air":
+                        num += 1
+                        if block_id == "minecraft:piston_head" or block_id == "minecraft:bubble_column" or block_id == "minecraft:nether_portal" or block_id == "minecraft:moving_piston":
                             continue
-    except Exception as e:
+                        if simple_type:
+                            output = block_id
+                        if output not in Block:
+                            Block[output] = 1
+                        else:
+                            Block[output] += 1
+        
+        for entity in region._Region__entities:
+            entity_type = "E/"+str(entity.id)
+            if entity_type == "E/minecraft:item" or entity_type == "E/minecraft:bat" or entity_type == "E/minecraft:experience_orb" or entity_type == "E/minecraft:shulker_bullet":
+                continue
+            if entity_type not in Block:
+                Block[entity_type] = 1
+            else:
+                Block[entity_type] += 1
+        label_bottom.config(text=f"Size体积: {size_x}x{size_y}x{size_z} | Number数量: {num} | Density密度: {num / (size_x * size_y * size_z) * 100:.2f}%")
+    '''except Exception as e:
         print(f"Error during analysis: {e}")
-        return
+        return'''
     sorted_block = sorted(Block.items(), key=lambda x: x[1], reverse=True)
     show_block_count(sorted_block, simple_type)
 
@@ -71,23 +81,42 @@ def show_block_count(sorted_block, simple_type):
     global images
     for index, (block_state, count) in enumerate(sorted_block):
         block_name = str(block_state).split(":")[-1].split("[")[0]
-        if simple_type:
-            properties = ""
-            block_id = block_name
+        
+        if str(block_state).split("/")[0]!="E":
+            if simple_type:
+                block_id = block_name
+                properties = ""
+            else:
+                block_id = block_state._BlockState__block_id
+                properties = str(block_state._BlockState__properties)
+                properties = properties.replace("'", "")
+            
+            try:
+                img_path = f"block/{str(block_name)}.png"
+                img2 = Image.open(img_path)
+                img2 = img2.resize((20, 20), Image.LANCZOS)
+                img2 = ImageTk.PhotoImage(img2)
+                images[index] = img2
+                count_table.insert('', 'end', image=img2, values=(str(block_id), str(count), convert_units(count), properties))
+            except:
+                count_table.insert('', 'end', text="Unknown Block", values=(str(block_id), str(count), convert_units(count), properties))
+            count_table.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         else:
-            properties = str(block_state._BlockState__properties)
-            properties = properties.replace("'", "")
-            block_id = block_state._BlockState__block_id
-        try:
-            img_path = f"block/{str(block_name)}.png"
-            img2 = Image.open(img_path)
-            img2 = img2.resize((20, 20), Image.LANCZOS)
-            img2 = ImageTk.PhotoImage(img2)
-            images[index] = img2
-            count_table.insert('', 'end', image=img2, values=(str(block_id), str(count), convert_units(count), properties))
-        except:
-            count_table.insert('', 'end', text="Unknown Block", values=(str(block_id), str(count), convert_units(count), properties))
-        count_table.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+            if simple_type:
+                block_id = block_name
+            else:
+                block_id = block_state
+            
+            try:
+                img_path = f"block/{str(block_name)}.png"
+                img2 = Image.open(img_path)
+                img2 = img2.resize((20, 20), Image.LANCZOS)
+                img2 = ImageTk.PhotoImage(img2)
+                images[index] = img2
+                count_table.insert('', 'end', image=img2, values=(str(block_id), str(count), convert_units(count), "Entity实体"))
+            except:
+                count_table.insert('', 'end', text="Unknown Block", values=(str(block_id), str(count), convert_units(count), "Entity实体"))
+            count_table.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
 # Tkinter Setting
 litem = tk.Tk()
@@ -110,9 +139,13 @@ btn_start.pack(side=tk.LEFT, padx=5, pady=5)
 btn_simstart = tk.Button(frame_top, text="Simple Analysis(block name)简洁分析", command=lambda:start_analysis(True))
 btn_simstart.pack(side=tk.LEFT, padx=5, pady=5)
 
-icon = tk.PhotoImage(file="block/crafting_table.png")
-icon_image = tk.Label(frame_top, image=icon)
-icon_image.pack(side=tk.RIGHT, padx=5, pady=5)
+btn_github = tk.Button(frame_top, text="GitHub", command=lambda:webbrowser.open("https://github.com/albertchen857/LitematicaViewer"), font=("Arial", 10))
+btn_github.configure(bg="black",fg="white")
+btn_github.pack(side=tk.RIGHT, padx=5, pady=5)
+
+btn_bilibili = tk.Button(frame_top, text="Bilibili", command=lambda:webbrowser.open("https://space.bilibili.com/3494373232741268"), font=("Arial", 10))
+btn_bilibili.configure(bg="#fb7299", fg="white")
+btn_bilibili.pack(side=tk.RIGHT, padx=5, pady=5)
 
 table_sty = ttk.Style()
 table_sty.configure("Treeview", font=("Helvetica", 10), rowheight=25, background="#1F1F1F", foreground="white")
@@ -141,7 +174,7 @@ count_table.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=50, pady=10)
 frame_bottom = tk.Frame(litem)
 frame_bottom.pack(side=tk.BOTTOM, fill=tk.X, padx=5, pady=5)
 frame_bottom.configure(bg="#3E3E3E")
-label_bottom = tk.Label(frame_bottom, text="Size", font=("Helvetica", 14))
+label_bottom = tk.Label(frame_bottom, text="Size体积 | Number数量 | Density密度", font=("Helvetica", 14))
 label_bottom.configure(bg="#3E3E3E", fg="white")
 label_bottom.pack()
 
