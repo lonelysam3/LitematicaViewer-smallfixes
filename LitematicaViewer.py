@@ -11,6 +11,13 @@ YourClass = getattr(your_module, 'Region')
 file_path = ""
 Block = {}
 images = {}
+color_map = [
+    '#36454F',  # Dark Electric Blue
+    '#727C82',  # Charcoal
+    '#6D8798',  # Dark Slate Gray
+    '#4C7893',  # Slate Gray
+    '#367CAA'   # Indigo
+]
 
 def convert_units(number):
     units = {'箱': 54 * 27 * 64, '盒': 27 * 64, '组': 64, '个': 1}
@@ -45,14 +52,14 @@ def start_analysis(simple_type=False):
             size_z = region.maxz() - region.minz() + 1
             num = 0
             for x in range(size_x):
-                for y in range(size_y):
+                for y in range(size_y):                                                                                                            
                     for z in range(size_z):
                         block_state = region._Region__palette[region._Region__blocks[x, y, z]]
                         block_id = block_state._BlockState__block_id
                         output = block_state
                         if block_id != "minecraft:air" and block_id != "minecraft:cave_air" and block_id != "minecraft:void_air":
                             num += 1
-                            if block_id == "minecraft:piston_head" or block_id == "minecraft:bubble_column" or block_id == "minecraft:nether_portal" or block_id == "minecraft:moving_piston":
+                            if block_id == "minecraft:piston_head" or block_id == "minecraft:bubble_column" or block_id == "minecraft:nether_portal" or block_id == "minecraft:moving_piston" or block_id == "minecraft:bedrock":
                                 continue
                             if simple_type:
                                 output = block_id
@@ -69,17 +76,24 @@ def start_analysis(simple_type=False):
                     Block[entity_type] = 1
                 else:
                     Block[entity_type] += 1
-            label_bottom.config(text=f"Size体积: {size_x}x{size_y}x{size_z} | Number数量: {num} | Density密度: {num / (size_x * size_y * size_z) * 100:.2f}%")
+            if entry_times.get() == "":
+                time = 1
+            else:
+                time = int(entry_times.get())
+            label_bottom.config(text=f"Size体积: {size_x}x{size_y}x{size_z} | Number数量: {num} | Density密度: {num / (size_x * size_y * size_z) * 100:.2f}% | Times倍数: {time}")
     except Exception as e:
         print(f"Error during analysis: {e}")
         return
     sorted_block = sorted(Block.items(), key=lambda x: x[1], reverse=True)
     show_block_count(sorted_block, simple_type)
 
-
 def show_block_count(sorted_block, simple_type):
-    global images
+    global images                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
     for index, (block_state, count) in enumerate(sorted_block):
+        try:
+            count = count * int(entry_times.get())
+        except:
+            count = count * 1
         block_name = str(block_state).split(":")[-1].split("[")[0]
         
         if str(block_state).split("/")[0]!="E":
@@ -121,61 +135,91 @@ def show_block_count(sorted_block, simple_type):
 # Tkinter Setting
 litem = tk.Tk()
 litem.title("Litematica Viewer投影查看器")
-litem.geometry("720x720")
+litem.geometry("1280x720")
 litem.iconbitmap("icon.ico")
-litem.configure(bg="#3E3E3E")
+litem.configure(bg=color_map[1])
+litem.attributes("-alpha", 0.9)
+# MENU
+menu = tk.Menu(litem)
 
+menu_analysis = tk.Menu(menu, tearoff=0)
+menu_analysis.add_command(label="IMPORT导入", command=import_file, font=("Arial", 10))
+menu_analysis.add_command(label="SIMPLE简洁分析", command=start_analysis, font=("Arial", 10))
+menu_analysis.add_command(label="FULL全面分析", command=lambda:start_analysis(True), font=("Arial", 10))
+menu.add_cascade(label="Analysis分析", menu=menu_analysis, font=("Arial", 20))
+
+
+litem.config(menu=menu, padx=10, pady=10)
 # 上容器
 frame_top = tk.Frame(litem)
-frame_top.configure(bg="#3E3E3E")
+frame_top.configure(bg=color_map[1])
 frame_top.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
 
 btn_import = tk.Button(frame_top, text="Import导入", command=import_file)
 btn_import.pack(side=tk.LEFT, padx=5, pady=5)
 
-btn_start = tk.Button(frame_top, text="Start Analysis(id & properties)分析", command=start_analysis)
-btn_start.pack(side=tk.LEFT, padx=5, pady=5)
-
-btn_simstart = tk.Button(frame_top, text="Simple Analysis(block name)简洁分析", command=lambda:start_analysis(True))
+btn_simstart = tk.Button(frame_top, text="SIMPLE Analysis简洁分析", command=lambda:start_analysis(True))
 btn_simstart.pack(side=tk.LEFT, padx=5, pady=5)
+
+btn_start = tk.Button(frame_top, text="FULL Analysis全面分析", command=start_analysis)
+btn_start.pack(side=tk.LEFT, padx=5, pady=5)
 
 btn_github = tk.Button(frame_top, text="GitHub", command=lambda:webbrowser.open("https://github.com/albertchen857/LitematicaViewer"), font=("Arial", 10))
 btn_github.configure(bg="black",fg="white")
 btn_github.pack(side=tk.RIGHT, padx=5, pady=5)
 
 btn_bilibili = tk.Button(frame_top, text="Bilibili", command=lambda:webbrowser.open("https://space.bilibili.com/3494373232741268"), font=("Arial", 10))
-btn_bilibili.configure(bg="#fb7299", fg="white")
+btn_bilibili.configure(bg="#FF6699", fg="white")
 btn_bilibili.pack(side=tk.RIGHT, padx=5, pady=5)
-
+# STYLE
 table_sty = ttk.Style()
-table_sty.configure("Treeview", font=("Helvetica", 10), rowheight=25, background="#1F1F1F", foreground="white")
-table_sty.configure("Treeview.Heading", font=("Minecraft", 12, "bold"))
-table_sty.map('Treeview', background=[('selected', 'blue')])
+table_sty.configure("Treeview", font=("Helvetica", 10), rowheight=25, background=color_map[2], foreground="white")
+table_sty.configure("Treeview.Heading", font=("Minecraft", 12, "bold"), background=color_map[2], foreground=color_map[0])
+table_sty.map('Treeview', background=[('selected', color_map[3])])
 # 中容器
-frame_middle = tk.Frame(litem, bg="white", height=400)
-frame_middle.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=5, pady=5)
-frame_middle.configure(background="#2F2F2F")
-label_middle = tk.Label(frame_middle, text="114514.litematica", font=("Helvetica", 18))
-label_middle.configure(bg="#3E3E3E", fg="white")
-label_middle.pack(padx=5, pady=20)
+frame_middle = tk.Frame(litem, bg="white")
+frame_middle.configure(background=color_map[0])
+frame_middle.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=5)
+# - 中容器顶部
+frame_middle_top = tk.Frame(frame_middle, bg=color_map[0])
+frame_middle_top.pack(side=tk.TOP, fill=tk.X, padx=10, pady=5)
 
-count_table = ttk.Treeview(frame_middle, column=('blockID',  'num', 'unit', 'properties'), height=7)
+label_middle = tk.Label(frame_middle_top, text="114514.litematica", font=("Helvetica", 24))
+label_middle.configure(bg=color_map[0], fg="white")
+label_middle.pack(fill=tk.X, padx=5, pady=1)
+
+label_bottom = tk.Label(frame_middle_top, text="Size体积 | Number数量 | Density密度 | Times倍数", font=("Helvetica", 14, "bold"))
+label_bottom.configure(bg=color_map[0], fg="white")
+label_bottom.pack(side=tk.LEFT, fill=tk.X, padx=40)
+
+frame_right = tk.Frame(frame_middle_top, bg=color_map[0])
+frame_right.pack(side=tk.RIGHT, fill=tk.Y, padx=40)
+
+label_times = tk.Label(frame_right, text="Times", font=("Helvetica", 14))
+label_times.configure(bg=color_map[0], fg="white")
+label_times.pack(side=tk.LEFT, padx=5)
+
+entry_times = tk.Entry(frame_right, width=10, bg=color_map[4], fg="white", font=("Helvetica", 10))
+entry_times.pack(side=tk.RIGHT, padx=5)
+
+# - 中容器表格
+frame_chart = tk.Frame(frame_middle, bg="white")
+frame_chart.configure(background=color_map[0])
+frame_chart.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=10, pady=5)
+
+sroll = tk.Scrollbar(frame_chart, orient="vertical")
+sroll.pack(side=tk.RIGHT, fill=tk.Y, padx=10)
+count_table = ttk.Treeview(frame_chart, column=('blockID', 'num', 'unit', 'properties'), height=7, yscrollcommand=sroll.set)
 count_table.heading('blockID', text='blockID', anchor="center")
 count_table.heading('num', text='数量', anchor="center")
 count_table.heading('unit', text='数量/单位', anchor="center")
 count_table.heading('properties', text='属性', anchor="center")
 count_table.column("#0", width=10, anchor="e")
 count_table.column("blockID", width=50)
-count_table.column("num" , width=2)
+count_table.column("num", width=2)
 count_table.column("unit", width=30)
-count_table.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=50, pady=10)
+count_table.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=5, pady=10)
 
-# 下容器
-frame_bottom = tk.Frame(litem)
-frame_bottom.pack(side=tk.BOTTOM, fill=tk.X, padx=5, pady=5)
-frame_bottom.configure(bg="#3E3E3E")
-label_bottom = tk.Label(frame_bottom, text="Size体积 | Number数量 | Density密度", font=("Helvetica", 14))
-label_bottom.configure(bg="#3E3E3E", fg="white")
-label_bottom.pack()
+
 
 litem.mainloop()
