@@ -1,14 +1,12 @@
 import tkinter as tk
-from tkinter.constants import RAISED
-
-import numpy as np
 from tkinter import filedialog, ttk
+
+from django.utils.timezone import override
 from litemapy import Schematic, Region, BlockState
 from PIL import Image, ImageTk
 import importlib, webbrowser, json
 your_module = importlib.import_module('litemapy')
 YourClass = getattr(your_module, 'Region')
-
 
 file_path = ""
 Block = {}
@@ -19,10 +17,9 @@ color_map = [
     '#f8f9fa',  # 背景
     '#343a40',  # 文字
 ]
+json_data = json.load(open('lang/zh_cn.json', 'r', encoding='utf-8'))
 
-with open('lang/zh_cn.json', 'r', encoding='utf-8') as file:
-    json_data = json.load(file)
-
+# 函数定义
 def convert_units(number):
     units = {'箱': 54 * 27 * 64, '盒': 27 * 64, '组': 64, '个': 1}
     result = ""
@@ -40,10 +37,40 @@ def import_file():
     label_middle.config(text=f"{file_name}")
 
 def cn_translate(id):
-    for key, value in list(json_data.items()):  # 只打印前五个条目作为示例
-        if key == id:
-            return value
-    return id
+    return json_data.get(id, id)
+
+def load_image(block_name):
+    try:
+        img_path = f"block/{block_name}.png"
+        img = Image.open(img_path)
+        img = img.resize((20, 20), Image.LANCZOS)
+        img = ImageTk.PhotoImage(img)
+        images[block_name] = img
+        return img
+    except:
+        return None
+
+def inserts_table(block_state, count, simple_type):
+    block_name = str(block_state).split(":")[-1].split("[")[0]
+    block_id = cn_translate(block_name) if simple_type else block_state._BlockState__block_id
+    properties = str(block_state._BlockState__properties).replace("'", "") if not simple_type else block_name
+    img = load_image(block_name)
+    count_table.insert('', 'end', image=img, values=(str(block_id), str(count), convert_units(count), properties))
+
+def insert_table(block_state, count, simple_type):
+    block_name = str(block_state).split(":")[-1].split("[")[0]
+    block_id = cn_translate(block_name) if simple_type else block_state._BlockState__block_id
+    try:
+        properties = block_name if simple_type else str(block_state._BlockState__properties).replace("'", "")
+    except:
+        properties = ""
+
+    img = load_image(block_name)
+    try:
+        count_table.insert('', 'end', image=img, values=(str(block_id), str(count), convert_units(count), properties))
+    except Exception as e:
+        print(f"Error inserting into Treeview: {e}")
+
 
 def start_analysis(simple_type=False):
     count_table.delete(*count_table.get_children())
@@ -62,85 +89,45 @@ def start_analysis(simple_type=False):
             size_z = region.maxz() - region.minz() + 1
             num = 0
             for x in range(size_x):
-                for y in range(size_y):                                                                                                            
+                for y in range(size_y):
                     for z in range(size_z):
                         block_state = region._Region__palette[region._Region__blocks[x, y, z]]
                         block_id = block_state._BlockState__block_id
-                        output = block_state
-                        if block_id != "minecraft:air" and block_id != "minecraft:cave_air" and block_id != "minecraft:void_air":
+                        if block_id not in ["minecraft:air", "minecraft:cave_air", "minecraft:void_air"]:
                             num += 1
-                            if block_id == "minecraft:piston_head" or block_id == "minecraft:bubble_column" or block_id == "minecraft:nether_portal" or block_id == "minecraft:moving_piston" or block_id == "minecraft:bedrock":
-                                continue
-                            if simple_type:
-                                output = block_id
-                            if output not in Block:
-                                Block[output] = 1
-                            else:
-                                Block[output] += 1
-            
+                            if block_id not in ["minecraft:piston_head", "minecraft:bubble_column",
+                                                "minecraft:nether_portal", "minecraft:moving_piston",
+                                                "minecraft:bedrock"]:
+                                output = block_id if simple_type else block_state
+                                if output not in Block:
+                                    Block[output] = 1
+                                else:
+                                    Block[output] += 1
             for entity in region._Region__entities:
-                entity_type = "E/"+str(entity.id)
-                if entity_type == "E/minecraft:item" or entity_type == "E/minecraft:bat" or entity_type == "E/minecraft:experience_orb" or entity_type == "E/minecraft:shulker_bullet":
-                    continue
-                if entity_type not in Block:
-                    Block[entity_type] = 1
-                else:
-                    Block[entity_type] += 1
+                entity_type = "E/" + str(entity.id)
+                if entity_type not in ["E/minecraft:item", "E/minecraft:bat", "E/minecraft:experience_orb",
+                                       "E/minecraft:shulker_bullet"]:
+                    if entity_type not in Block:
+                        Block[entity_type] = 1
+                    else:
+                        Block[entity_type] += 1
             if entry_times.get() == "":
                 time = 1
             else:
                 time = int(entry_times.get())
-            label_bottom.config(text=f"Size体积: {size_x}x{size_y}x{size_z} | Number数量: {num} | Density密度: {num / (size_x * size_y * size_z) * 100:.2f}% | Times倍数: {time}")
+            label_bottom.config(
+                text=f"Size体积: {size_x}x{size_y}x{size_z} | Number数量: {num} | Density密度: {num / (size_x * size_y * size_z) * 100:.2f}% | Times倍数: {time}")
     except Exception as e:
         print(f"Error during analysis: {e}")
         return
-    sorted_block = sorted(Block.items(), key=lambda x: x[1], reverse=True)
-    show_block_count(sorted_block, simple_type)
 
-def show_block_count(sorted_block, simple_type):
-    global images                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+    sorted_block = sorted(Block.items(), key=lambda x: x[1], reverse=True)
     for index, (block_state, count) in enumerate(sorted_block):
         try:
             count = count * int(entry_times.get())
         except:
             count = count * 1
-        block_name = str(block_state).split(":")[-1].split("[")[0]
-        
-        if str(block_state).split("/")[0]!="E":
-            if simple_type:
-                block_id = cn_translate(block_name)
-                properties = block_name
-            else:
-                block_id = block_state._BlockState__block_id
-                properties = str(block_state._BlockState__properties).replace("'", "")
-            
-            try:
-                img_path = f"block/{str(block_name)}.png"
-                img2 = Image.open(img_path)
-                img2 = img2.resize((20, 20), Image.LANCZOS)
-                img2 = ImageTk.PhotoImage(img2)
-                images[index] = img2
-                count_table.insert('', 'end', image=img2, values=(str(block_id), str(count), convert_units(count), properties))
-            except:
-                count_table.insert('', 'end', text="Unknown Block", values=(str(block_id), str(count), convert_units(count), properties))
-            count_table.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-        else:
-            if simple_type:
-                block_id = cn_translate(block_name)
-                properties = block_name+"\tEntity实体"
-            else:
-                block_id = block_state
-                properties = "Entity实体"
-            try:
-                img_path = f"block/{str(block_name)}.png"
-                img2 = Image.open(img_path)
-                img2 = img2.resize((20, 20), Image.LANCZOS)
-                img2 = ImageTk.PhotoImage(img2)
-                images[index] = img2
-                count_table.insert('', 'end', image=img2, values=(str(block_id), str(count), convert_units(count), properties))
-            except:
-                count_table.insert('', 'end', text="Unknown Block", values=(str(block_id), str(count), convert_units(count), properties))
-            count_table.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        insert_table(block_state, count, simple_type)
 
 # Tkinter Setting
 litem = tk.Tk()
@@ -156,7 +143,7 @@ menu_analysis = tk.Menu(menu, tearoff=0)
 menu_analysis.add_command(label="IMPORT导入", command=import_file, font=("Arial", 10))
 menu_analysis.add_command(label="SIMPLE简洁分析", command=start_analysis, font=("Arial", 10))
 menu_analysis.add_command(label="FULL全面分析", command=lambda:start_analysis(True), font=("Arial", 10))
-menu.add_cascade(label="Analysis分析", menu=menu_analysis, font=("Arial", 20))
+menu.add_cascade(label="DataAnalysis数据分析", menu=menu_analysis, font=("Arial", 20))
 
 
 litem.config(menu=menu, padx=10, pady=10)
