@@ -20,7 +20,7 @@ color_map = [
     '#343a40',  # 文字
 ]
 
-with open('zh_cn.json', 'r', encoding='utf-8') as file:
+with open('lang/zh_cn.json', 'r', encoding='utf-8') as file:
     json_data = json.load(file)
 
 def convert_units(number):
