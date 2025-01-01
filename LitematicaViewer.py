@@ -1,13 +1,12 @@
 import tkinter as tk
 from tkinter import filedialog, ttk
-
-from django.utils.timezone import override
 from litemapy import Schematic, Region, BlockState
 from PIL import Image, ImageTk
 import importlib, webbrowser, json
 your_module = importlib.import_module('litemapy')
 YourClass = getattr(your_module, 'Region')
 
+APP_VERSION = '0.3.1'
 file_path = ""
 Block = {}
 images = {}
@@ -40,6 +39,7 @@ def cn_translate(id):
     return json_data.get(id, id)
 
 def load_image(block_name):
+
     try:
         img_path = f"block/{block_name}.png"
         img = Image.open(img_path)
@@ -48,28 +48,23 @@ def load_image(block_name):
         images[block_name] = img
         return img
     except:
-        return None
-
-def inserts_table(block_state, count, simple_type):
-    block_name = str(block_state).split(":")[-1].split("[")[0]
-    block_id = cn_translate(block_name) if simple_type else block_state._BlockState__block_id
-    properties = str(block_state._BlockState__properties).replace("'", "") if not simple_type else block_name
-    img = load_image(block_name)
-    count_table.insert('', 'end', image=img, values=(str(block_id), str(count), convert_units(count), properties))
+        img_path = f"block/info_update.png"
+        img = Image.open(img_path)
+        img = img.resize((20, 20), Image.LANCZOS)
+        img = ImageTk.PhotoImage(img)
+        images[block_name] = img
+        return img
 
 def insert_table(block_state, count, simple_type):
     block_name = str(block_state).split(":")[-1].split("[")[0]
     block_id = cn_translate(block_name) if simple_type else block_state._BlockState__block_id
     try:
-        properties = block_name if simple_type else str(block_state._BlockState__properties).replace("'", "")
+        properties = str(block_state._BlockState__properties).replace("'", "") if not simple_type else block_name
     except:
         properties = ""
 
     img = load_image(block_name)
-    try:
-        count_table.insert('', 'end', image=img, values=(str(block_id), str(count), convert_units(count), properties))
-    except Exception as e:
-        print(f"Error inserting into Treeview: {e}")
+    count_table.insert('', 'end', image=img, values=(str(block_id), str(count), convert_units(count), properties))
 
 
 def start_analysis(simple_type=False):
@@ -103,20 +98,18 @@ def start_analysis(simple_type=False):
                                     Block[output] = 1
                                 else:
                                     Block[output] += 1
-            for entity in region._Region__entities:
-                entity_type = "E/" + str(entity.id)
-                if entity_type not in ["E/minecraft:item", "E/minecraft:bat", "E/minecraft:experience_orb",
-                                       "E/minecraft:shulker_bullet"]:
-                    if entity_type not in Block:
-                        Block[entity_type] = 1
-                    else:
-                        Block[entity_type] += 1
-            if entry_times.get() == "":
-                time = 1
-            else:
-                time = int(entry_times.get())
+            if DoEntity.get():
+                for entity in region._Region__entities:
+                    entity_type = "E/" + str(entity.id)
+                    if entity_type not in ["E/minecraft:item", "E/minecraft:bat", "E/minecraft:experience_orb",
+                                           "E/minecraft:shulker_bullet"]:
+                        if entity_type not in Block:
+                            Block[entity_type] = 1
+                        else:
+                            Block[entity_type] += 1
+            time = 1 if entry_times.get() == "" else int(entry_times.get())
             label_bottom.config(
-                text=f"Size体积: {size_x}x{size_y}x{size_z} | Number数量: {num} | Density密度: {num / (size_x * size_y * size_z) * 100:.2f}% | Times倍数: {time}")
+                text=f"Size体积: {size_x}x{size_y}x{size_z} | Number数量: {num} | Density密度: {num / (size_x * size_y * size_z) * 100:.2f}% | Times倍数: {time} | Types种类: {len(Block)}")
     except Exception as e:
         print(f"Error during analysis: {e}")
         return
@@ -131,19 +124,23 @@ def start_analysis(simple_type=False):
 
 # Tkinter Setting
 litem = tk.Tk()
-litem.title("Litematica Viewer投影查看器")
+litem.title(f"Litematica Viewer投影查看器 v{APP_VERSION}")
 litem.geometry("1280x720")
 litem.iconbitmap("icon.ico")
 litem.configure(bg=color_map[2])
 litem.attributes("-alpha", 0.9)
 # MENU
 menu = tk.Menu(litem)
+DoEntity = tk.IntVar(value=1)
 
 menu_analysis = tk.Menu(menu, tearoff=0)
 menu_analysis.add_command(label="IMPORT导入", command=import_file, font=("Arial", 10))
 menu_analysis.add_command(label="SIMPLE简洁分析", command=start_analysis, font=("Arial", 10))
 menu_analysis.add_command(label="FULL全面分析", command=lambda:start_analysis(True), font=("Arial", 10))
 menu.add_cascade(label="DataAnalysis数据分析", menu=menu_analysis, font=("Arial", 20))
+menu_AnaSet = tk.Menu(menu, tearoff=0)
+menu.add_cascade(label="Setting分析设置",menu=menu_AnaSet, font=("Arial", 20))
+menu_AnaSet.add_checkbutton(label="DoAnalysisEntity是否分析实体",variable=DoEntity, font=("Arial", 10),)
 
 
 litem.config(menu=menu, padx=10, pady=10)
@@ -180,13 +177,13 @@ frame_middle.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 frame_middle_top = tk.Frame(frame_middle, bg=color_map[0])
 frame_middle_top.pack(side=tk.TOP, fill=tk.X, padx=10, pady=5)
 
-label_middle = tk.Label(frame_middle_top, text="114514.litematica", font=("Helvetica", 30, 'bold'))
+label_middle = tk.Label(frame_middle_top, text="LitematicaViewer投影查看器", font=("Helvetica", 30, 'bold'))
 label_middle.configure(bg=color_map[0], fg=color_map[3], bd=5)
 label_middle.pack(fill=tk.Y)
 
-label_bottom = tk.Label(frame_middle_top, text="Size体积 | Number数量 | Density密度 | Times倍数", font=("Helvetica", 16, "bold"))
+label_bottom = tk.Label(frame_middle_top, text="Size体积 | Number数量 | Density密度 | Times倍数 | Types种类", font=("Helvetica", 14, "bold"))
 label_bottom.configure(bg=color_map[0], fg=color_map[2], bd=5)
-label_bottom.pack(side=tk.LEFT, fill=tk.X, padx=40)
+label_bottom.pack(side=tk.LEFT, fill=tk.X, padx=20, pady=10)
 
 frame_right = tk.Frame(frame_middle_top, bg=color_map[0])
 frame_right.pack(side=tk.RIGHT, fill=tk.Y, padx=40)
