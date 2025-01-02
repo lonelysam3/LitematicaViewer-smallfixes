@@ -2,12 +2,13 @@ import tkinter as tk
 from tkinter import filedialog, ttk
 from litemapy import Schematic, Region, BlockState
 from PIL import Image, ImageTk
-import importlib, webbrowser, json
+import importlib, webbrowser, json, os
 your_module = importlib.import_module('litemapy')
 YourClass = getattr(your_module, 'Region')
 
-APP_VERSION = '0.3.1'
+APP_VERSION = '0.3.2'
 file_path = ""
+file_name = "litematica"
 Block = {}
 images = {}
 color_map = [
@@ -18,7 +19,6 @@ color_map = [
 ]
 json_data = json.load(open('lang/zh_cn.json', 'r', encoding='utf-8'))
 
-# 函数定义
 def convert_units(number):
     units = {'箱': 54 * 27 * 64, '盒': 27 * 64, '组': 64, '个': 1}
     result = ""
@@ -28,18 +28,17 @@ def convert_units(number):
     return result
 
 def import_file():
-    global file_path
+    global file_path, file_name
     file_path = filedialog.askopenfilename()
     file_path = file_path.replace("\\", "/")
-    print(f"Imported file: {file_path}")
     file_name = file_path.split("/")[-1]
     label_middle.config(text=f"{file_name}")
+    print(f"Imported file: {file_path}")
 
 def cn_translate(id):
     return json_data.get(id, id)
 
 def load_image(block_name):
-
     try:
         img_path = f"block/{block_name}.png"
         img = Image.open(img_path)
@@ -66,6 +65,15 @@ def insert_table(block_state, count, simple_type):
     img = load_image(block_name)
     count_table.insert('', 'end', image=img, values=(str(block_id), str(count), convert_units(count), properties))
 
+def output_data():
+    output_file_path = tk.filedialog.asksaveasfilename(defaultextension=".txt",filetypes=[("Text files", "*.txt"), ("All files", "*.*")],title="Litematica Analysis Data Save As",initialfile=f"{file_name.split(".")[0]}.txt")
+    if not output_file_path:
+        return
+    with open(output_file_path, 'w', encoding='utf-8') as f:
+        f.write(f"{file_name}\n======================\n")
+        for key in Block:
+            f.write(f"{str(Block[key]).rjust(6,"0")} | {key.split("[")[0].split(":")[-1]}\n")
+    os.startfile(output_file_path)
 
 def start_analysis(simple_type=False):
     count_table.delete(*count_table.get_children())
@@ -137,6 +145,7 @@ menu_analysis = tk.Menu(menu, tearoff=0)
 menu_analysis.add_command(label="IMPORT导入", command=import_file, font=("Arial", 10))
 menu_analysis.add_command(label="SIMPLE简洁分析", command=start_analysis, font=("Arial", 10))
 menu_analysis.add_command(label="FULL全面分析", command=lambda:start_analysis(True), font=("Arial", 10))
+menu_analysis.add_command(label="Output导出", command=output_data, font=("Arial", 10))
 menu.add_cascade(label="DataAnalysis数据分析", menu=menu_analysis, font=("Arial", 20))
 menu_AnaSet = tk.Menu(menu, tearoff=0)
 menu.add_cascade(label="Setting分析设置",menu=menu_AnaSet, font=("Arial", 20))
