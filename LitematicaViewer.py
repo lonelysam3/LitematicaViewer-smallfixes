@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import filedialog, ttk
 from litemapy import Schematic, Region, BlockState
 from PIL import Image, ImageTk
-import importlib, webbrowser, json, os
+import importlib, webbrowser, json, os, subprocess
 your_module = importlib.import_module('litemapy')
 YourClass = getattr(your_module, 'Region')
 
@@ -18,6 +18,14 @@ color_map = [
     '#343a40',  # 文字
 ]
 json_data = json.load(open('lang/zh_cn.json', 'r', encoding='utf-8'))
+
+def manual_install_pk():
+    try:
+        result = subprocess.run(['install.bat'], check=True, capture_output=True, text=True)
+        print("Packages install successfully")
+        print(result.stdout)
+    except subprocess.CalledProcessError as e:
+        print(e.stderr)
 
 def convert_units(number):
     units = {'箱': 54 * 27 * 64, '盒': 27 * 64, '组': 64, '个': 1}
@@ -142,14 +150,19 @@ menu = tk.Menu(litem)
 DoEntity = tk.IntVar(value=1)
 
 menu_analysis = tk.Menu(menu, tearoff=0)
-menu_analysis.add_command(label="IMPORT导入", command=import_file, font=("Arial", 10))
-menu_analysis.add_command(label="SIMPLE简洁分析", command=start_analysis, font=("Arial", 10))
-menu_analysis.add_command(label="FULL全面分析", command=lambda:start_analysis(True), font=("Arial", 10))
+menu_analysis.add_command(label="Import导入", command=import_file, font=("Arial", 10))
 menu_analysis.add_command(label="Output导出", command=output_data, font=("Arial", 10))
+menu_analysis.add_command(label="SimpleAnalysis简洁分析", command=start_analysis, font=("Arial", 10))
+menu_analysis.add_command(label="FullAnalysis全面分析", command=lambda:start_analysis(True), font=("Arial", 10))
 menu.add_cascade(label="DataAnalysis数据分析", menu=menu_analysis, font=("Arial", 20))
 menu_AnaSet = tk.Menu(menu, tearoff=0)
 menu.add_cascade(label="Setting分析设置",menu=menu_AnaSet, font=("Arial", 20))
-menu_AnaSet.add_checkbutton(label="DoAnalysisEntity是否分析实体",variable=DoEntity, font=("Arial", 10),)
+menu_AnaSet.add_checkbutton(label="DoAnalysisEntity是否分析实体",variable=DoEntity, font=("Arial", 10))
+menu_Help = tk.Menu(menu, tearoff=0)
+menu.add_cascade(label="Help帮助",menu=menu_Help, font=("Arial", 20))
+menu_Help.add_command(label="About关于", command=lambda:webbrowser.open("https://github.com/albertchen857/LitematicaViewer"), font=("Arial", 10))
+menu_Help.add_command(label="AboutCreater关于作者", command=lambda:webbrowser.open("https://space.bilibili.com/3494373232741268"), font=("Arial", 10))
+menu_Help.add_command(label="ManualInstallPackages手动更新软件库", command=manual_install_pk, font=("Arial", 10))
 
 
 litem.config(menu=menu, padx=10, pady=10)
@@ -217,10 +230,10 @@ frame_chart.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=10, pady=5)
 sroll = tk.Scrollbar(frame_chart, orient="vertical")
 sroll.pack(side=tk.RIGHT, fill=tk.Y, padx=10)
 count_table = ttk.Treeview(frame_chart, column=('blockID', 'num', 'unit', 'properties'), height=7, yscrollcommand=sroll.set)
-count_table.heading('blockID', text='名字/ID', anchor="center")
-count_table.heading('num', text='数量', anchor="center")
-count_table.heading('unit', text='数量/单位', anchor="center")
-count_table.heading('properties', text='属性', anchor="center")
+count_table.heading('blockID', text='ID/名字', anchor="center")
+count_table.heading('num', text='Num数量', anchor="center")
+count_table.heading('unit', text='Unit单位数', anchor="center")
+count_table.heading('properties', text='Prop属性', anchor="center")
 count_table.column("#0", width=2, anchor="e")
 count_table.column("blockID", width=2)
 count_table.column("num", width=2)
