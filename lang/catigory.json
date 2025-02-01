@@ -1,0 +1,12 @@
+{
+  "实体":["E/"],
+  "羊毛":["wool","carpet"],"陶瓦":["terracotta"],"混凝土":["concrete"],"玻璃":["glass"],
+  "木制":["birch","oak","bamboo","cherry","crimson","acacia","jungle","mangrove","spruce","warped"],
+  "石英":["quartz"],"矿类":["copper","ore","raw"],
+  "石质":["cobblestone","stone","blackstone","deepslate"],"其他岩石":["calcite","granite","andesite","diorite","tuff",""],
+  "砂土类":["sand","sandstone","gravel","dirt","mud","podzol","mycelium"],
+  "末地类":["obsidian","endstone","purpur"],
+  "地狱类":["glowstone","nether","netherrack"],
+  "海晶类":["prismarine"],
+  "粘土类":["clay","brick"]
+}
