@@ -2,7 +2,8 @@ import tkinter as tk
 from tkinter import filedialog, ttk
 from litemapy import Schematic, Region, BlockState
 from PIL import Image, ImageTk
-import importlib, webbrowser, json, os, subprocess
+from Litmatool import *
+import importlib, webbrowser, os, codecs
 your_module = importlib.import_module('litemapy')
 YourClass = getattr(your_module, 'Region')
 
@@ -17,34 +18,14 @@ color_map = [
     '#f8f9fa',  # 背景
     '#343a40',  # 文字
 ]
-json_data = json.load(open('lang/zh_cn.json', 'r', encoding='utf-8'))
-
-def manual_install_pk():
-    try:
-        result = subprocess.run(['install.bat'], check=True, capture_output=True, text=True)
-        print("Packages install successfully")
-        print(result.stdout)
-    except subprocess.CalledProcessError as e:
-        print(e.stderr)
-
-def convert_units(number):
-    units = {'箱': 54 * 27 * 64, '盒': 27 * 64, '组': 64, '个': 1}
-    result = ""
-    for unit, value in units.items():
-        result += str(number // value) + unit
-        number %= value
-    return result
 
 def import_file():
     global file_path, file_name
-    file_path = filedialog.askopenfilename()
+    file_path = filedialog.askopenfilename(filetypes=[("Litematic File","*.litematic"),("All File","*.")])
     file_path = file_path.replace("\\", "/")
     file_name = file_path.split("/")[-1]
     label_middle.config(text=f"{file_name}")
     print(f"Imported file: {file_path}")
-
-def cn_translate(id):
-    return json_data.get(id, id)
 
 def load_image(block_name):
     try:
@@ -63,72 +44,111 @@ def load_image(block_name):
         return img
 
 def insert_table(block_state, count, simple_type):
-    block_name = str(block_state).split(":")[-1].split("[")[0]
-    block_id = cn_translate(block_name) if simple_type else block_state._BlockState__block_id
-    try:
-        properties = str(block_state._BlockState__properties).replace("'", "") if not simple_type else block_name
-    except:
-        properties = ""
-
+    if isinstance(block_state, BlockState):
+        block_id = block_state._BlockState__block_id
+        properties = block_state._BlockState__properties
+        block_name = block_id.split(":")[-1]
+        if properties:
+            properties_str = ", ".join([f"{k}={v}" for k, v in properties.items()])  # 格式化属性
+        else:
+            properties_str = ""
+    else:
+        block_id = block_state
+        block_name = block_id.split(":")[-1]
+        properties_str = block_name
+    block_id_display = cn_translate(block_name) if simple_type else block_id
     img = load_image(block_name)
-    count_table.insert('', 'end', image=img, values=(str(block_id), str(count), convert_units(count), properties))
+    count_table.insert('', 'end', image=img, values=(block_id_display, str(count), convert_units(count), properties_str))
 
-def output_data():
-    output_file_path = tk.filedialog.asksaveasfilename(defaultextension=".txt",filetypes=[("Text files", "*.txt"), ("All files", "*.*")],title="Litematica Analysis Data Save As",initialfile=f"{file_name.split(".")[0]}.txt")
+def output_data(classification : bool = False):
+    global Block
+    output_file_path = tk.filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text files", "*.txt"),
+                                                                                            ("CSV Chart files",
+                                                                                            "*.csv")],
+                                                           title="Litematica Analysis Data Save As",
+                                                           initialfile=f"{file_name.split(".")[0]}.txt")
     if not output_file_path:
         return
-    with open(output_file_path, 'w', encoding='utf-8') as f:
-        f.write(f"{file_name}\n======================\n")
-        for key in Block:
-            f.write(f"{str(Block[key]).rjust(6,"0")} | {key.split("[")[0].split(":")[-1]}\n")
+    with codecs.open(output_file_path, 'w', encoding='utf-8-sig') as f:
+        Block = dict(sorted(Block.items(), key=lambda x: x[1], reverse=True))  # Block = list
+        Cla_Block = {"实体": [], "羊毛": [], "陶瓦": [], "混凝土": [], "玻璃": [], "木制": [], "石质": [],
+                     "其他岩石": [], "石英": [], "矿类": [], "砂土类": [], "末地类": [], "地狱类": [], "海晶类": [],
+                     "粘土类": [], "其他": []}
+        if not classification:
+            for val in Block:
+                num = Block[val]
+                id = val.split("[")[0].split(":")[-1]
+                extension = os.path.splitext(output_file_path)[1].lower()
+                if extension == ".csv":
+                    f.write(f"{cn_translate(id)},{id},{num},{convert_units(num)}\n")
+                else:
+                    f.write(f"{num}[{convert_units(num)}] | {cn_translate(id)} [{id}]\n")
+        else:
+            for val in Block:
+                id = val.split("[")[0].split(":")[-1]
+                type = Category_Tran(id)
+                if type != "":
+                    Cla_Block[type].append((Block[val],val))
+                else:
+                    Cla_Block["其他"].append((Block[val],val))
+            for catigory in Cla_Block:
+                if Cla_Block[catigory]:
+                    f.write(f"\n{catigory}\n" + "-" * 20 + "\n")
+                for val in Cla_Block[catigory]:
+                    num = val[0]
+                    id = str(val[1]).split("[")[0].split(":")[-1]
+                    extension = os.path.splitext(output_file_path)[1].lower()
+                    if extension == ".csv":
+                        f.write(f"{cn_translate(id)},{id},{num},{convert_units(num)}\n")
+                    else:
+                        f.write(f"{num}[{convert_units(num)}] | {cn_translate(id)}[{id}]\n")
     os.startfile(output_file_path)
 
-def start_analysis(simple_type=False):
+def start_analysis(simple_type):
     count_table.delete(*count_table.get_children())
     Block.clear()
     if not file_path:
-        print("Please import a file first.")
-        return
-
-    try:
-        schematic = Schematic.load(file_path)
-        print(f"Schematic loaded: {schematic}")
-        for region_index, region in enumerate(schematic.regions.values()):
-            print(f"Analyzing region {region_index + 1}")
-            size_x = region.maxx() - region.minx() + 1
-            size_y = region.maxy() - region.miny() + 1
-            size_z = region.maxz() - region.minz() + 1
-            num = 0
-            for x in range(size_x):
-                for y in range(size_y):
-                    for z in range(size_z):
-                        block_state = region._Region__palette[region._Region__blocks[x, y, z]]
-                        block_id = block_state._BlockState__block_id
-                        if block_id not in ["minecraft:air", "minecraft:cave_air", "minecraft:void_air"]:
-                            num += 1
-                            if block_id not in ["minecraft:piston_head", "minecraft:bubble_column",
-                                                "minecraft:nether_portal", "minecraft:moving_piston",
-                                                "minecraft:bedrock"]:
-                                output = block_id if simple_type else block_state
-                                if output not in Block:
-                                    Block[output] = 1
-                                else:
-                                    Block[output] += 1
-            if DoEntity.get():
-                for entity in region._Region__entities:
-                    entity_type = "E/" + str(entity.id)
-                    if entity_type not in ["E/minecraft:item", "E/minecraft:bat", "E/minecraft:experience_orb",
-                                           "E/minecraft:shulker_bullet"]:
-                        if entity_type not in Block:
-                            Block[entity_type] = 1
-                        else:
-                            Block[entity_type] += 1
-            time = 1 if entry_times.get() == "" else int(entry_times.get())
-            label_bottom.config(
-                text=f"Size体积: {size_x}x{size_y}x{size_z} | Number数量: {num} | Density密度: {num / (size_x * size_y * size_z) * 100:.2f}% | Times倍数: {time} | Types种类: {len(Block)}")
-    except Exception as e:
+        import_file()
+    #try:
+    schematic = Schematic.load(file_path)
+    print(f"Schematic loaded: {schematic}")
+    for region_index, region in enumerate(schematic.regions.values()):
+        print(f"Analyzing region {region_index + 1}")
+        size_x = region.maxx() - region.minx() + 1
+        size_y = region.maxy() - region.miny() + 1
+        size_z = region.maxz() - region.minz() + 1
+        num = 0
+        for x in range(size_x):
+            for y in range(size_y):
+                for z in range(size_z):
+                    block_state = region._Region__palette[region._Region__blocks[x, y, z]]
+                    #print(block_state)
+                    block_id = block_state._BlockState__block_id
+                    if block_id not in ["minecraft:air", "minecraft:cave_air", "minecraft:void_air"]:
+                        num += 1
+                        if block_id not in ["minecraft:piston_head", "minecraft:bubble_column",
+                                            "minecraft:nether_portal", "minecraft:moving_piston",
+                                            "minecraft:bedrock"]:
+                            output = block_id if simple_type else block_state
+                            if output not in Block:
+                                Block[output] = 1
+                            else:
+                                Block[output] += 1
+        if DoEntity.get():
+            for entity in region._Region__entities:
+                entity_type = "E/" + str(entity.id)
+                if entity_type not in ["E/minecraft:item", "E/minecraft:bat", "E/minecraft:experience_orb",
+                                       "E/minecraft:shulker_bullet"]:
+                    if entity_type not in Block:
+                        Block[entity_type] = 1
+                    else:
+                        Block[entity_type] += 1
+        time = 1 if entry_times.get() == "" else int(entry_times.get())
+        label_bottom.config(
+            text=f"Size体积: {size_x}x{size_y}x{size_z} | Number数量: {num} | Density密度: {num / (size_x * size_y * size_z) * 100:.2f}% | Times倍数: {time} | Types种类: {len(Block)}")
+    '''except Exception as e:
         print(f"Error during analysis: {e}")
-        return
+        return'''
 
     sorted_block = sorted(Block.items(), key=lambda x: x[1], reverse=True)
     for index, (block_state, count) in enumerate(sorted_block):
@@ -151,9 +171,10 @@ DoEntity = tk.IntVar(value=1)
 
 menu_analysis = tk.Menu(menu, tearoff=0)
 menu_analysis.add_command(label="Import导入", command=import_file, font=("Arial", 10))
-menu_analysis.add_command(label="Output导出", command=output_data, font=("Arial", 10))
-menu_analysis.add_command(label="SimpleAnalysis简洁分析", command=start_analysis, font=("Arial", 10))
-menu_analysis.add_command(label="FullAnalysis全面分析", command=lambda:start_analysis(True), font=("Arial", 10))
+menu_analysis.add_command(label="Output导出", command=lambda:output_data(False), font=("Arial", 10))
+menu_analysis.add_command(label="ClassifiedOutput分类导出", command=lambda:output_data(True), font=("Arial", 10))
+menu_analysis.add_command(label="SimpleAnalysis简洁分析", command=lambda:start_analysis(True), font=("Arial", 10))
+menu_analysis.add_command(label="FullAnalysis全面分析", command=lambda:start_analysis(False), font=("Arial", 10))
 menu.add_cascade(label="DataAnalysis数据分析", menu=menu_analysis, font=("Arial", 20))
 menu_AnaSet = tk.Menu(menu, tearoff=0)
 menu.add_cascade(label="Setting分析设置",menu=menu_AnaSet, font=("Arial", 20))
@@ -177,9 +198,6 @@ btn_import.pack(side=tk.LEFT, padx=5, pady=5)
 btn_simstart = tk.Button(frame_top, text="SIMPLE Analysis简洁分析", command=lambda:start_analysis(True), font=("Arial", 10))
 btn_simstart.configure(bg=color_map[0],fg=color_map[3],relief='ridge')
 btn_simstart.pack(side=tk.LEFT, padx=5, pady=5)
-btn_start = tk.Button(frame_top, text="FULL Analysis全面分析", command=start_analysis, font=("Arial", 10))
-btn_start.configure(bg=color_map[0],fg=color_map[3],relief='ridge')
-btn_start.pack(side=tk.LEFT, padx=5, pady=5)
 
 btn_github = tk.Button(frame_top, text="GitHub", command=lambda:webbrowser.open("https://github.com/albertchen857/LitematicaViewer"), font=("Arial", 10))
 btn_github.configure(bg="black",fg=color_map[2],relief='groove')
@@ -240,7 +258,5 @@ count_table.column("num", width=2)
 count_table.column("unit", width=2)
 count_table.column("properties", width=300)
 count_table.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=5, pady=10)
-
-
 
 litem.mainloop()
