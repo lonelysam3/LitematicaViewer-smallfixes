@@ -26,6 +26,6 @@ A light Viewer of Litematica files
 # 后续更新内容Updates
 
 * [ ]  填充类特定方块 fill specific blocks
-* [ ]  导出更新  export update
+* [X]  导出更新  export update
 * [ ]  预览图/3D图 3D Preview
 * [ ]  数据分析PLUS analysis chart
