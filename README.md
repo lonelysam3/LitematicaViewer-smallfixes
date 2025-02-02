@@ -1,4 +1,4 @@
-LitematicaViewer投影查看器 v0.3
+LitematicaViewer投影查看器 v0.4
 ===============================
 
 ### Minecraft tool - A tool make easy to check litematica files 让我的世界投影查看更加的轻量便捷
