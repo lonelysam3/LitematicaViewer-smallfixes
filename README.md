@@ -24,8 +24,8 @@ A light Viewer of Litematica files
   下面显示投影建筑体积
 
 # 后续更新内容Updates
-
-* [ ]  填充类特定方块 fill specific blocks
 * [X]  导出更新  export update
+* [X]  数据分析PLUS analysis chart
+* [ ]  填充类特定方块 fill specific blocks
 * [ ]  预览图/3D图 3D Preview
-* [ ]  数据分析PLUS analysis chart
+
