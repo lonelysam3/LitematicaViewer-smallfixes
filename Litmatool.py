@@ -1,4 +1,7 @@
 import json, subprocess
+import numpy as np
+import scipy.stats as stats
+from pygame.display import mode_ok
 
 json_data = json.load(open('lang/zh_cn.json', 'r', encoding='utf-8'))
 json_cati = json.load(open('lang/catigory.json', 'r', encoding='utf-8'))
@@ -33,6 +36,22 @@ def Category_Tran(data):
             if prop in value_list:
                 return key
     return ""
+
+def statistics(data):
+    mean = np.mean(data)
+    median = np.median(data)
+    mode = stats.mode(data)
+    ran = np.ptp(data)
+    std_dev = np.std(data, ddof=1)
+    std_err = stats.sem(data)
+    IQR = np.percentile(data, 75)-np.percentile(data, 25)
+    skewness = stats.skew(data)
+    confidence_level = 0.95
+    margin_of_error = std_err * stats.t.ppf((1 + confidence_level) / 2, len(data) - 1)  # 置信区间边界
+    ci_lower = mean - margin_of_error
+    ci_upper = mean + margin_of_error
+    return [mean,median,mode,ran,std_dev,std_err,IQR,skewness,ci_lower,ci_upper]
+
 
 if __name__ == "__main__":
     pass
